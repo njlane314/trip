@@ -44,11 +44,6 @@ typedef enum lim_rule_kind {
     LIM_RULE_STALE = 1
 } lim_rule_kind;
 
-typedef enum lim_format {
-    LIM_FORMAT_TEXT = 0,
-    LIM_FORMAT_JSON = 1
-} lim_format;
-
 typedef struct lim_rule {
     char key[LIM_MAX_NAME];
     lim_rule_kind kind;
@@ -80,8 +75,6 @@ int lim_add_stale_rule(lim_ctx *ctx, const char *key, double stale_seconds,
 int lim_load_rules_file(lim_ctx *ctx, const char *path, char *err, size_t err_cap);
 int lim_sample(lim_ctx *ctx, const char *key, double value, char *out,
                size_t out_cap);
-int lim_sample_format(lim_ctx *ctx, const char *key, double value,
-                      lim_format format, char *out, size_t out_cap);
 
 const char *lim_level_name(lim_level level);
 const char *lim_op_name(lim_op op);

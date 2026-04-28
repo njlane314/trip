@@ -335,68 +335,7 @@ int lim_load_rules_file(lim_ctx *ctx, const char *path, char *err, size_t err_ca
     return 0;
 }
 
-static int lim_json_escape(char *dst, size_t cap, const char *src) {
-    size_t j = 0;
-    if (!dst || cap == 0) return -1;
-    if (!src) src = "";
-
-    for (size_t i = 0; src[i]; ++i) {
-        unsigned char c = (unsigned char)src[i];
-        const char *rep = NULL;
-        char hex[7];
-
-        switch (c) {
-            case '\\': rep = "\\\\"; break;
-            case '"': rep = "\\\""; break;
-            case '\b': rep = "\\b"; break;
-            case '\f': rep = "\\f"; break;
-            case '\n': rep = "\\n"; break;
-            case '\r': rep = "\\r"; break;
-            case '\t': rep = "\\t"; break;
-            default:
-                if (c < 0x20) {
-                    snprintf(hex, sizeof(hex), "\\u%04x", c);
-                    rep = hex;
-                }
-                break;
-        }
-
-        if (rep) {
-            size_t rn = strlen(rep);
-            if (j + rn >= cap) return -1;
-            memcpy(dst + j, rep, rn);
-            j += rn;
-        } else {
-            if (j + 1 >= cap) return -1;
-            dst[j++] = (char)c;
-        }
-    }
-
-    dst[j] = '\0';
-    return 0;
-}
-
-static int lim_emit_event_json(const lim_rule *rule, double value, char *out, size_t out_cap,
-                               time_t now) {
-    char key_esc[LIM_MAX_NAME * 2];
-    char id_esc[LIM_MAX_NAME * 2];
-    if (lim_json_escape(key_esc, sizeof(key_esc), rule->key) != 0) return -1;
-    if (lim_json_escape(id_esc, sizeof(id_esc), rule->event_id) != 0) return -1;
-
-    if (!out || out_cap == 0) return -1;
-    snprintf(out, out_cap,
-             "{\"ts\":%lld,\"level\":\"%s\",\"id\":\"%s\",\"key\":\"%s\",\"op\":\"%s\",\"threshold\":%.17g,\"value\":%.17g}",
-             (long long)now,
-             lim_level_name(rule->level),
-             id_esc,
-             key_esc,
-             lim_rule_op_name(rule),
-             rule->threshold,
-             value);
-    return 0;
-}
-
-static int lim_emit_event_text(const lim_rule *rule, double value, char *out, size_t out_cap) {
+static int lim_emit_event(const lim_rule *rule, double value, char *out, size_t out_cap) {
     if (!out || out_cap == 0) return -1;
     snprintf(out, out_cap, "%s\t%s\t%s\t%s\t%.17g\t%.17g",
              lim_level_name(rule->level),
@@ -408,17 +347,8 @@ static int lim_emit_event_text(const lim_rule *rule, double value, char *out, si
     return 0;
 }
 
-static int lim_emit_event(const lim_rule *rule, double value, lim_format format,
-                          char *out, size_t out_cap, time_t now) {
-    if (format == LIM_FORMAT_JSON) {
-        return lim_emit_event_json(rule, value, out, out_cap, now);
-    }
-    return lim_emit_event_text(rule, value, out, out_cap);
-}
-
 static int lim_record_event(lim_ctx *ctx, lim_rule *rule, double value,
-                            lim_format format, char *out, size_t out_cap,
-                            time_t now) {
+                            char *out, size_t out_cap, time_t now) {
     if (!ctx || !rule) return -1;
 
     if (rule->cooldown_seconds > 0.0 && rule->has_last_emit_time) {
@@ -435,18 +365,13 @@ static int lim_record_event(lim_ctx *ctx, lim_rule *rule, double value,
     if (rule->level == LIM_LEVEL_ERROR) ctx->error_count++;
 
     if (out && out_cap && out[0] == '\0') {
-        lim_emit_event(rule, value, format, out, out_cap, now);
+        lim_emit_event(rule, value, out, out_cap);
     }
 
     return 1;
 }
 
 int lim_sample(lim_ctx *ctx, const char *key, double value, char *out, size_t out_cap) {
-    return lim_sample_format(ctx, key, value, LIM_FORMAT_TEXT, out, out_cap);
-}
-
-int lim_sample_format(lim_ctx *ctx, const char *key, double value,
-                      lim_format format, char *out, size_t out_cap) {
     int emitted = 0;
     time_t now = time(NULL);
     if (!ctx || !key) return -1;
@@ -460,14 +385,14 @@ int lim_sample_format(lim_ctx *ctx, const char *key, double value,
         if (r->kind == LIM_RULE_STALE) r->seen = 1;
         if (!lim_rule_matches(r, value)) continue;
 
-        emitted += lim_record_event(ctx, r, value, format, out, out_cap, now);
+        emitted += lim_record_event(ctx, r, value, out, out_cap, now);
     }
 
     return emitted;
 }
 
 #ifndef LIM_NO_MAIN
-static int lim_emit_missing_stale(lim_ctx *ctx, lim_format format) {
+static int lim_emit_missing_stale(lim_ctx *ctx) {
     int emitted = 0;
     time_t now = time(NULL);
 
@@ -481,7 +406,7 @@ static int lim_emit_missing_stale(lim_ctx *ctx, lim_format format) {
         if (r->kind != LIM_RULE_STALE || r->seen) continue;
 
         event_line[0] = '\0';
-        er = lim_record_event(ctx, r, r->threshold, format, event_line,
+        er = lim_record_event(ctx, r, r->threshold, event_line,
                               sizeof(event_line), now);
         if (er > 0 && event_line[0]) {
             puts(event_line);
@@ -494,7 +419,7 @@ static int lim_emit_missing_stale(lim_ctx *ctx, lim_format format) {
 
 static void lim_usage(FILE *f) {
     fprintf(f,
-        "usage: lim -r rules.lim [--fail-on error|warn|never] [--json] [--summary]\n"
+        "usage: lim -r rules.lim [--fail-on error|warn|never] [--summary]\n"
         "\n"
         "Read key=value telemetry from stdin and emit events for rules that trip.\n"
         "\n"
@@ -516,7 +441,6 @@ static void lim_usage(FILE *f) {
         "Options:\n"
         "  -r, --rules PATH       rules file\n"
         "  --fail-on LEVEL        error, warn, or never; default: error\n"
-        "  --json                 emit JSONL instead of tab-separated text\n"
         "  --summary              print summary to stderr\n"
         "  -h, --help             show help\n"
         "  --version              show version\n");
@@ -563,7 +487,6 @@ int main(int argc, char **argv) {
     lim_level fail_on = LIM_LEVEL_ERROR;
     int fail_never = 0;
     int summary = 0;
-    lim_format format = LIM_FORMAT_TEXT;
     lim_ctx ctx;
     char err[256];
     char line[LIM_LINE_MAX];
@@ -583,8 +506,6 @@ int main(int argc, char **argv) {
             }
         } else if (strcmp(argv[i], "--summary") == 0) {
             summary = 1;
-        } else if (strcmp(argv[i], "--json") == 0) {
-            format = LIM_FORMAT_JSON;
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             lim_usage(stdout);
             return 0;
@@ -626,8 +547,7 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        emitted = lim_sample_format(&ctx, key, value, format, event_line,
-                                    sizeof(event_line));
+        emitted = lim_sample(&ctx, key, value, event_line, sizeof(event_line));
         if (emitted > 0 && event_line[0]) {
             puts(event_line);
         }
@@ -638,7 +558,7 @@ int main(int argc, char **argv) {
         return 2;
     }
 
-    lim_emit_missing_stale(&ctx, format);
+    lim_emit_missing_stale(&ctx);
 
     if (summary) {
         fprintf(stderr,

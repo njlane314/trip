@@ -42,8 +42,6 @@ Tab-separated events on stdout:
 
 warn	frame.slow	frame.ms	>	16.600000000000001	18.699999999999999
 
-Use --json for JSONL.
-
 Exit status:
 
 0  no failing rule
