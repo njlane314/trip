@@ -1,6 +1,6 @@
 # lim
 
-`lim` is a tiny Unix-style telemetry limit checker.
+`lim` is a tiny command-line telemetry limit checker.
 
 Pipe `key=value` telemetry into `lim`, define threshold rules, and get JSONL warning/error events on stdout. It is designed for ordinary native programs and small CI-friendly telemetry checks.
 
@@ -132,7 +132,7 @@ cc -std=c99 -Wall -Wextra -O2 -DLIM_NO_MAIN example.c lim.c -o example
 - JSONL output
 - nonzero exit status for CI use
 
-The first version is intentionally a Unix filter, not a daemon, dashboard, or cloud service.
+The first version is intentionally a command-line filter, not a daemon, dashboard, or cloud service.
 
 ## License
 

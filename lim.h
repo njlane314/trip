@@ -4,7 +4,7 @@
 /*
  * lim.h - tiny telemetry limit checker
  *
- * Public-domain-sized C API; intended for small native programs and Unix
+ * Public-domain-sized C API; intended for small native programs and shell
  * pipelines. The implementation is in lim.c. Compile with:
  *
  *   cc -std=c99 -Wall -Wextra -O2 lim.c -o lim
