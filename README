@@ -1,14 +1,14 @@
-LIM
+TRIP
 
 PURPOSE
 Check numeric telemetry in CI.
 
-Programs emit key=value lines. lim checks them against rules, emits plain text
+Programs emit key=value lines. trip checks them against rules, emits plain text
 events, and exits nonzero when an error rule trips.
 
 USAGE
-cc -std=c99 -Wall -Wextra -O2 lim.c -o lim
-./some_test_or_benchmark | ./lim -r .lim/rules.lim
+cc -std=c99 -Wall -Wextra -O2 trip.c -o trip
+./some_test_or_benchmark | ./trip -r .trip/rules.trip
 
 RULES
 Format:
@@ -53,7 +53,7 @@ make
 make test
 
 EMBEDDING
-Compile with -DLIM_NO_MAIN and include lim.h from a C or C++ test harness.
+Compile with -DTRIP_NO_MAIN and include trip.h from a C or C++ test harness.
 
 LICENSE
 MIT.
