@@ -1,0 +1,20 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make
+      - run: make test
+      - name: telemetry demo
+        run: |
+          set +e
+          ./lim -r examples/rules.lim --summary < examples/sample.tlm > events.jsonl
+          status=$?
+          cat events.jsonl
+          test "$status" -eq 1
