@@ -40,6 +40,12 @@ backpressure, binary size, inference throughput, and parser throughput.
 runs `lim`, writes the JSONL result to `$GITHUB_STEP_SUMMARY`, and uploads
 `telemetry.tlm` plus `lim-events.jsonl` as artifacts.
 
+Run the example deployment locally:
+
+```sh
+examples/github-actions/test-project.sh
+```
+
 ## Integration levels
 
 Zero-code integration:
